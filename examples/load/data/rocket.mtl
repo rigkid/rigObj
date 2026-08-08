@@ -1,0 +1,21 @@
+# rigObj hero materials (original, MIT)
+newmtl body
+Kd 0.9000 0.9200 0.9500
+d 1.0
+
+newmtl nose
+Kd 0.9200 0.2800 0.2200
+d 1.0
+
+newmtl fin
+Kd 0.1800 0.2000 0.2400
+d 1.0
+
+newmtl window
+Kd 0.3000 0.7200 0.8800
+d 1.0
+
+newmtl engine
+Kd 0.3500 0.3500 0.3800
+d 1.0
+

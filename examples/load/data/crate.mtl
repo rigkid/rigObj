@@ -1,0 +1,9 @@
+# rigObj hero materials (original, MIT)
+newmtl wood
+Kd 0.6200 0.4200 0.2200
+d 1.0
+
+newmtl strap
+Kd 0.2500 0.2500 0.2800
+d 1.0
+
