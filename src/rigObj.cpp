@@ -6,8 +6,8 @@
 namespace rigkit {
 
 rigObj::rigObj() : IPack("rigObj") {
-	setDescription("Wavefront OBJ load/save for CMesh (tinyobjloader)");
-	addDependency("rigComponent");
+	
+
 }
 
 bool rigObj::init() {

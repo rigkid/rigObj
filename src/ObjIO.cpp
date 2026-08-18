@@ -1,6 +1,7 @@
 #include "ObjIO.h"
 
 #include "CTransform.h"
+#include "MeshFaces.h"
 #include "rig/create.h"
 
 #include <fstream>
@@ -98,6 +99,8 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 		return result;
 	}
 
+	rigkit::ecs::meshFinishFaces(outMesh);
+
 	result.ok = true;
 	return result;
 }
@@ -131,26 +134,37 @@ IoResult save(const std::string& path, const rigkit::ecs::CMesh& mesh) {
 		}
 	}
 
-	auto emitFace = [&](uint32_t i0, uint32_t i1, uint32_t i2) {
-		// OBJ indices are 1-based.
-		const uint32_t a = i0 + 1;
-		const uint32_t b = i1 + 1;
-		const uint32_t c = i2 + 1;
-		if (hasUv) {
-			out << "f " << a << '/' << a << ' ' << b << '/' << b << ' ' << c << '/' << c << '\n';
-		} else {
-			out << "f " << a << ' ' << b << ' ' << c << '\n';
+	auto emitFace = [&](const uint32_t* idx, uint32_t n) {
+		out << 'f';
+		for (uint32_t i = 0; i < n; ++i) {
+			const uint32_t a = idx[i] + 1;
+			if (hasUv) {
+				out << ' ' << a << '/' << a;
+			} else {
+				out << ' ' << a;
+			}
 		}
+		out << '\n';
 	};
 
-	if (mesh.indices.empty()) {
+	if (!mesh.loopSizes.empty()) {
+		uint32_t off = 0;
+		for (uint32_t n : mesh.loopSizes) {
+			if (n >= 3 && off + n <= mesh.loops.size()) {
+				emitFace(mesh.loops.data() + off, n);
+			}
+			off += n;
+		}
+	} else if (mesh.indices.empty()) {
 		for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) {
-			emitFace(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1),
-					 static_cast<uint32_t>(i + 2));
+			const uint32_t t[3] = {static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1),
+								   static_cast<uint32_t>(i + 2)};
+			emitFace(t, 3);
 		}
 	} else {
 		for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-			emitFace(mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]);
+			const uint32_t t[3] = {mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]};
+			emitFace(t, 3);
 		}
 	}
 
@@ -178,8 +192,11 @@ entt::entity makeMeshFromFile(rigkit::MEcs& ecs, const std::string& path,
 	auto e = makeMesh(ecs, std::move(mesh.positions), std::move(mesh.indices), mesh.mode, draw,
 					  name);
 	auto& stored = ecs.getComponent<rigkit::ecs::CMesh>(e);
+	stored.loops = std::move(mesh.loops);
+	stored.loopSizes = std::move(mesh.loopSizes);
 	stored.faceColors = std::move(mesh.faceColors);
 	stored.texcoords = std::move(mesh.texcoords);
+	rigkit::ecs::meshTriangulate(stored);
 	return e;
 }
 
