@@ -17,6 +17,7 @@ endif()
 add_library(${PACK_NAME} STATIC
 	src/rigObj.cpp
 	src/rigObj.h
+	src/RenderSettings.h
 	src/ObjIO.cpp
 	src/ObjIO.h
 )

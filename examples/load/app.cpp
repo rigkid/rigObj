@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <spdlog/spdlog.h>
+#include "core/IMui.h"
 #include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
 #include "core/util/AppPaths.h"
@@ -76,8 +77,8 @@ void sit(rigkit::MEcs& ecs, entt::entity e, float height) {
 
 void LoadApp::setup() {
 	spdlog::info("load - Stanford bunny (OBJ + MTL to CMesh)");
-	settings().graphics.showFps = true;
-	m_engine->setClearColor(0.04f, 0.045f, 0.05f, 1.0f);
+	m_engine->setClearColor(settings().graphics.clearColor.r, settings().graphics.clearColor.g,
+							settings().graphics.clearColor.b, settings().graphics.clearColor.a);
 
 	auto* packs = m_engine->getPackManager();
 	if (!packs) {
@@ -114,7 +115,8 @@ void LoadApp::setup() {
 	lightData.colorB = 0.90f;
 
 	const auto data = std::filesystem::path(AppPaths::getDataDir());
-	sit(*ecs, loadObj(*ecs, data / "bunny.obj", "bunny"), 2.4f);
+	m_mesh = loadObj(*ecs, data / "bunny.obj", "bunny");
+	sit(*ecs, m_mesh, 2.4f);
 
 	rig::orbitFrameMeshes(*ecs, m_camera);
 	auto& framed = ecs->getComponent<rigkit::ecs::COrbitDrive>(m_camera);
@@ -127,7 +129,42 @@ void LoadApp::setup() {
 		g_wheel = &m_wheel;
 		glfwSetScrollCallback(win, onScroll);
 	}
-	spdlog::info("load - LMB orbit, Shift+LMB / MMB pan, wheel or RMB dolly, F frame");
+	spdlog::info("load - LMB orbit, Shift+LMB / MMB pan, wheel or RMB dolly, F frame, Ctrl+R reload");
+}
+
+void LoadApp::registerUIActions(rigkit::ecs::SEvent&) {
+	if (auto* ui = m_engine ? m_engine->getUiManager() : nullptr) {
+		ui->registerViewAction("Reload", [this] { reloadBunny(); }, "Ctrl+R");
+		ui->registerShortcut("view.reload", "Reload", "Ctrl+R", [this] { reloadBunny(); });
+	}
+}
+
+void LoadApp::reloadBunny() {
+	auto* ecs = m_engine ? m_engine->getECSManager() : nullptr;
+	if (!ecs) {
+		return;
+	}
+	const auto path = std::filesystem::path(AppPaths::getDataDir()) / "bunny.obj";
+	if (m_mesh == entt::null || !ecs->hasComponent<rigkit::ecs::CMesh>(m_mesh)) {
+		m_mesh = loadObj(*ecs, path, "bunny");
+		sit(*ecs, m_mesh, 2.4f);
+		return;
+	}
+	rigkit::ecs::CMesh next;
+	const auto io = rig::obj::load(path.string(), next);
+	if (!io.ok) {
+		spdlog::error("[load] reload {}: {}", path.filename().string(), io.error);
+		return;
+	}
+	if (!io.warning.empty()) {
+		spdlog::warn("[load] reload {}: {}", path.filename().string(), io.warning);
+	}
+	auto& mesh = ecs->getComponent<rigkit::ecs::CMesh>(m_mesh);
+	const uint32_t revision = mesh.revision + 1;
+	mesh = std::move(next);
+	mesh.revision = revision;
+	sit(*ecs, m_mesh, 2.4f);
+	spdlog::info("[load] reloaded {}", path.filename().string());
 }
 
 void LoadApp::update(float) {
@@ -167,4 +204,12 @@ void LoadApp::update(float) {
 		rig::orbitFrameMeshes(*ecs, m_camera);
 	}
 	m_fDown = f;
+
+	const int ctrl = glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+					 glfwGetKey(win, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
+	const bool ctrlR = ctrl && glfwGetKey(win, GLFW_KEY_R) == GLFW_PRESS;
+	if (ctrlR && !m_ctrlRDown) {
+		reloadBunny();
+	}
+	m_ctrlRDown = ctrlR;
 }

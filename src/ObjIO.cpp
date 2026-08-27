@@ -3,6 +3,7 @@
 #include "CTransform.h"
 #include "MeshFaces.h"
 #include "rig/create.h"
+#include "rigObj.h"
 
 #include <cmath>
 #include <cstdint>
@@ -102,6 +103,9 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 		return ni;
 	};
 
+	const bool applyMtl = !rigkit::rigObj::liveRenderSettings() ||
+						  rigkit::rigObj::liveRenderSettings()->applyMtlColors;
+
 	for (const auto& shape : shapes) {
 		size_t indexOffset = 0;
 		for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
@@ -133,10 +137,10 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 			const tinyobj::material_t* mat =
 				(matId >= 0 && matId < static_cast<int>(materials.size())) ? &materials[matId]
 																		   : nullptr;
-			if (mat) {
+			if (applyMtl && mat) {
 				anyColor = true;
 				outMesh.faceColors.push_back(diffuseColor(mat));
-			} else {
+			} else if (applyMtl) {
 				outMesh.faceColors.push_back({1.f, 1.f, 1.f, 1.f});
 			}
 		}
