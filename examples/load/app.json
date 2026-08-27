@@ -2,8 +2,8 @@
   "name": "load",
   "version": "0.1.0",
   "license": "MIT",
-  "description": "rigObj hero - landing pad from OBJ + MTL into CMesh",
-  "window": { "width": 960, "height": 600, "title": "rigObj - load" },
+  "description": "rigObj hero - Stanford bunny from OBJ + MTL",
+  "window": { "width": 1280, "height": 720, "title": "rigObj - load" },
   "dependencies": [
     {
       "name": "rigComponent",
@@ -13,6 +13,11 @@
     {
       "name": "rigSystems",
       "url": "https://github.com/rigkid/rigSystems.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigProject",
+      "url": "https://github.com/rigkid/rigProject.git",
       "ref": "main"
     },
     {

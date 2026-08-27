@@ -4,7 +4,10 @@
 #include "MeshFaces.h"
 #include "rig/create.h"
 
+#include <cmath>
+#include <cstdint>
 #include <fstream>
+#include <vector>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
@@ -20,6 +23,10 @@ glm::vec4 diffuseColor(const tinyobj::material_t* mat) {
 	return {mat->diffuse[0], mat->diffuse[1], mat->diffuse[2], 1.f};
 }
 
+bool sameUv(const glm::vec2& a, const glm::vec2& b) {
+	return std::fabs(a.x - b.x) < 1e-6f && std::fabs(a.y - b.y) < 1e-6f;
+}
+
 } // namespace
 
 IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
@@ -28,7 +35,7 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 	outMesh.mode = rigkit::ecs::CMesh::Mode::Triangles;
 
 	tinyobj::ObjReaderConfig config;
-	config.triangulate = true;
+	config.triangulate = false;
 	config.vertex_color = false;
 
 	tinyobj::ObjReader reader;
@@ -42,17 +49,85 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 	const auto& shapes = reader.GetShapes();
 	const auto& materials = reader.GetMaterials();
 
+	const size_t nVert = attrib.vertices.size() / 3;
+	if (nVert == 0) {
+		result.error = "OBJ contained no vertices";
+		return result;
+	}
+	outMesh.positions.resize(nVert);
+	for (size_t i = 0; i < nVert; ++i) {
+		outMesh.positions[i] = {attrib.vertices[3 * i + 0], attrib.vertices[3 * i + 1],
+								attrib.vertices[3 * i + 2]};
+	}
+
+	const size_t nUv = attrib.texcoords.size() / 2;
+	std::vector<uint8_t> uvSet;
 	bool anyUv = false;
 	bool anyColor = false;
+
+	size_t nFaces = 0;
+	size_t nCorners = 0;
+	for (const auto& shape : shapes) {
+		nFaces += shape.mesh.num_face_vertices.size();
+		nCorners += shape.mesh.indices.size();
+	}
+	outMesh.loops.reserve(nCorners);
+	outMesh.loopSizes.reserve(nFaces);
+	outMesh.faceColors.reserve(nFaces);
+
+	auto corner = [&](const tinyobj::index_t& idx) -> uint32_t {
+		const uint32_t vi = static_cast<uint32_t>(idx.vertex_index);
+		if (idx.texcoord_index < 0 || static_cast<size_t>(idx.texcoord_index) >= nUv) {
+			return vi;
+		}
+		const size_t ti = static_cast<size_t>(idx.texcoord_index);
+		const glm::vec2 uv{attrib.texcoords[2 * ti + 0], attrib.texcoords[2 * ti + 1]};
+		anyUv = true;
+		if (outMesh.texcoords.size() != outMesh.positions.size()) {
+			outMesh.texcoords.assign(outMesh.positions.size(), {0.f, 0.f});
+			uvSet.assign(outMesh.positions.size(), 0);
+		}
+		if (!uvSet[vi]) {
+			outMesh.texcoords[vi] = uv;
+			uvSet[vi] = 1;
+			return vi;
+		}
+		if (sameUv(outMesh.texcoords[vi], uv)) {
+			return vi;
+		}
+		const uint32_t ni = static_cast<uint32_t>(outMesh.positions.size());
+		outMesh.positions.push_back(outMesh.positions[vi]);
+		outMesh.texcoords.push_back(uv);
+		uvSet.push_back(1);
+		return ni;
+	};
 
 	for (const auto& shape : shapes) {
 		size_t indexOffset = 0;
 		for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
 			const size_t fv = shape.mesh.num_face_vertices[f];
-			if (fv != 3) {
+			if (fv < 3 || indexOffset + fv > shape.mesh.indices.size()) {
 				indexOffset += fv;
 				continue;
 			}
+
+			bool ok = true;
+			for (size_t v = 0; v < fv; ++v) {
+				const tinyobj::index_t idx = shape.mesh.indices[indexOffset + v];
+				if (idx.vertex_index < 0 || static_cast<size_t>(idx.vertex_index) >= nVert) {
+					ok = false;
+					break;
+				}
+			}
+			if (!ok) {
+				indexOffset += fv;
+				continue;
+			}
+			for (size_t v = 0; v < fv; ++v) {
+				outMesh.loops.push_back(corner(shape.mesh.indices[indexOffset + v]));
+			}
+			indexOffset += fv;
+			outMesh.loopSizes.push_back(static_cast<uint32_t>(fv));
 
 			const int matId = f < shape.mesh.material_ids.size() ? shape.mesh.material_ids[f] : -1;
 			const tinyobj::material_t* mat =
@@ -64,26 +139,6 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 			} else {
 				outMesh.faceColors.push_back({1.f, 1.f, 1.f, 1.f});
 			}
-
-			for (size_t v = 0; v < 3; ++v) {
-				const tinyobj::index_t idx = shape.mesh.indices[indexOffset + v];
-				glm::vec3 pos{0.f};
-				if (idx.vertex_index >= 0) {
-					const size_t vi = static_cast<size_t>(idx.vertex_index);
-					pos = {attrib.vertices[3 * vi + 0], attrib.vertices[3 * vi + 1],
-						   attrib.vertices[3 * vi + 2]};
-				}
-				outMesh.positions.push_back(pos);
-
-				glm::vec2 uv{0.f};
-				if (idx.texcoord_index >= 0) {
-					const size_t ti = static_cast<size_t>(idx.texcoord_index);
-					uv = {attrib.texcoords[2 * ti + 0], attrib.texcoords[2 * ti + 1]};
-					anyUv = true;
-				}
-				outMesh.texcoords.push_back(uv);
-			}
-			indexOffset += fv;
 		}
 	}
 
@@ -94,12 +149,12 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 		outMesh.faceColors.clear();
 	}
 
-	if (outMesh.positions.empty()) {
-		result.error = "OBJ contained no triangle faces";
+	if (outMesh.loopSizes.empty()) {
+		result.error = "OBJ contained no faces";
 		return result;
 	}
 
-	rigkit::ecs::meshFinishFaces(outMesh);
+	rigkit::ecs::meshTriangulate(outMesh);
 
 	result.ok = true;
 	return result;
@@ -189,14 +244,10 @@ entt::entity makeMeshFromFile(rigkit::MEcs& ecs, const std::string& path,
 		draw = fill(1.f, 1.f, 1.f);
 	}
 
-	auto e = makeMesh(ecs, std::move(mesh.positions), std::move(mesh.indices), mesh.mode, draw,
-					  name);
-	auto& stored = ecs.getComponent<rigkit::ecs::CMesh>(e);
-	stored.loops = std::move(mesh.loops);
-	stored.loopSizes = std::move(mesh.loopSizes);
-	stored.faceColors = std::move(mesh.faceColors);
-	stored.texcoords = std::move(mesh.texcoords);
-	rigkit::ecs::meshTriangulate(stored);
+	const auto e = ecs.createEntity(name);
+	ecs.addComponent<rigkit::ecs::CTransform>(e);
+	ecs.addComponent<rigkit::ecs::CMesh>(e, std::move(mesh));
+	ecs.addComponent<rigkit::ecs::CDrawStyle>(e, draw);
 	return e;
 }
 

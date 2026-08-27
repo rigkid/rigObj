@@ -1,9 +1,17 @@
 #include "app.h"
 
-#include "core/pack/MPack.h"
+#include <filesystem>
+#include <string>
+
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <spdlog/spdlog.h>
 #include "core/RigKitEngine.h"
+#include "core/pack/MPack.h"
 #include "core/util/AppPaths.h"
+#include "packs/rigComponent/src/CCamera.h"
 #include "packs/rigComponent/src/CLight.h"
+#include "packs/rigComponent/src/CMesh.h"
 #include "packs/rigComponent/src/COrbitDrive.h"
 #include "packs/rigComponent/src/CTransform.h"
 #include "packs/rigComponent/src/rig.h"
@@ -11,14 +19,18 @@
 #include "packs/rigObj/src/ObjIO.h"
 #include "packs/rigObj/src/rigObj.h"
 #include "packs/rigRender3D/src/rigRender3D.h"
+#include "packs/rigSystems/src/OrbitNav.h"
 #include "packs/rigSystems/src/rigSystems.h"
 
-#include <cmath>
-#include <filesystem>
-#include <spdlog/spdlog.h>
-#include <string>
-
 namespace {
+
+float* g_wheel = nullptr;
+
+void onScroll(GLFWwindow*, double, double yoff) {
+	if (g_wheel) {
+		*g_wheel += static_cast<float>(yoff);
+	}
+}
 
 entt::entity loadObj(rigkit::MEcs& ecs, const std::filesystem::path& path,
 					 const std::string& name) {
@@ -34,11 +46,38 @@ entt::entity loadObj(rigkit::MEcs& ecs, const std::filesystem::path& path,
 	return e;
 }
 
+void sit(rigkit::MEcs& ecs, entt::entity e, float height) {
+	if (e == entt::null || !ecs.hasComponent<rigkit::ecs::CMesh>(e) ||
+		!ecs.hasComponent<rigkit::ecs::CTransform>(e)) {
+		return;
+	}
+	const auto& mesh = ecs.getComponent<rigkit::ecs::CMesh>(e);
+	if (mesh.positions.empty()) {
+		return;
+	}
+	glm::vec3 mn = mesh.positions.front();
+	glm::vec3 mx = mn;
+	for (const auto& p : mesh.positions) {
+		mn = glm::min(mn, p);
+		mx = glm::max(mx, p);
+	}
+	const float h = mx.y - mn.y;
+	if (h < 1e-6f) {
+		return;
+	}
+	const float s = height / h;
+	const glm::vec3 mid = 0.5f * (mn + mx);
+	auto& xf = ecs.getComponent<rigkit::ecs::CTransform>(e);
+	xf.scale = {s, s, s};
+	xf.position = {-mid.x * s, -mn.y * s, -mid.z * s};
+}
+
 } // namespace
 
 void LoadApp::setup() {
-	spdlog::info("load - rigObj landing pad (OBJ + MTL to CMesh faceColors)");
-	m_engine->setClearColor(0.04f, 0.05f, 0.09f, 1.0f);
+	spdlog::info("load - Stanford bunny (OBJ + MTL to CMesh)");
+	settings().graphics.showFps = true;
+	m_engine->setClearColor(0.04f, 0.045f, 0.05f, 1.0f);
 
 	auto* packs = m_engine->getPackManager();
 	if (!packs) {
@@ -56,70 +95,76 @@ void LoadApp::setup() {
 		return;
 	}
 
-	m_camera = rig::makeCamera(*ecs, {0.0f, 2.4f, 5.5f}, true, "load-camera");
-	rigkit::ecs::COrbitDrive orbit;
-	orbit.speed = 0.22f;
-	orbit.radius = 5.5f;
-	orbit.height = 2.4f;
-	ecs->addComponent<rigkit::ecs::COrbitDrive>(m_camera, orbit);
-	rig::lookAt(ecs->getComponent<rigkit::ecs::CTransform>(m_camera),
-				{0.0f, orbit.height, orbit.radius}, {0.0f, 0.5f, 0.0f});
+	m_camera = rig::makeOrbitCamera(*ecs, {0.0f, 1.2f, 0.0f}, 5.5f, 0.32f, true, "load-camera");
+	auto& orbit = ecs->getComponent<rigkit::ecs::COrbitDrive>(m_camera);
+	orbit.yaw = 0.55f;
+	orbit.enabled = false;
+	auto& cam = ecs->getComponent<rigkit::ecs::CCamera>(m_camera);
+	cam.fovYDegrees = 36.0f;
 
-	m_light =
-		rig::makeLight(*ecs, {3.0f, 3.5f, 2.0f}, rigkit::ecs::CLight::Type::Point, "load-light");
-	auto& lightData = ecs->getComponent<rigkit::ecs::CLight>(m_light);
-	lightData.intensity = 1.35f;
-	lightData.ambient = 0.28f;
-	lightData.banded = true;
-	lightData.bands = 4;
+	const auto light =
+		rig::makeLight(*ecs, {0.f, 0.f, 0.f}, rigkit::ecs::CLight::Type::Directional, "load-light");
+	rig::parentTo(*ecs, light, m_camera);
+	auto& lightData = ecs->getComponent<rigkit::ecs::CLight>(light);
+	lightData.intensity = 1.15f;
+	lightData.ambient = 0.38f;
+	lightData.banded = false;
 	lightData.colorR = 1.0f;
 	lightData.colorG = 0.96f;
-	lightData.colorB = 0.88f;
+	lightData.colorB = 0.90f;
 
 	const auto data = std::filesystem::path(AppPaths::getDataDir());
-	m_pad = loadObj(*ecs, data / "pad.obj", "pad");
-	m_rocket = loadObj(*ecs, data / "rocket.obj", "rocket");
-	m_crateA = loadObj(*ecs, data / "crate.obj", "crate-a");
-	m_crateB = loadObj(*ecs, data / "crate.obj", "crate-b");
+	sit(*ecs, loadObj(*ecs, data / "bunny.obj", "bunny"), 2.4f);
 
-	if (m_crateA != entt::null) {
-		auto& t = ecs->getComponent<rigkit::ecs::CTransform>(m_crateA);
-		t.position = {1.55f, 0.0f, 0.85f};
-		t.setEulerRadians({0.0f, 0.4f, 0.0f});
+	rig::orbitFrameMeshes(*ecs, m_camera);
+	auto& framed = ecs->getComponent<rigkit::ecs::COrbitDrive>(m_camera);
+	framed.yaw = 0.55f;
+	framed.pitch = 0.32f;
+	framed.enabled = false;
+	rig::orbitApply(*ecs, m_camera);
+
+	if (GLFWwindow* win = m_engine->getWindow()) {
+		g_wheel = &m_wheel;
+		glfwSetScrollCallback(win, onScroll);
 	}
-	if (m_crateB != entt::null) {
-		auto& t = ecs->getComponent<rigkit::ecs::CTransform>(m_crateB);
-		t.position = {1.85f, 0.0f, -0.55f};
-		t.setEulerRadians({0.0f, -0.7f, 0.0f});
-		t.scale = {0.85f, 0.85f, 0.85f};
-	}
+	spdlog::info("load - LMB orbit, Shift+LMB / MMB pan, wheel or RMB dolly, F frame");
 }
 
-void LoadApp::update(float dt) {
-	m_time += dt;
+void LoadApp::update(float) {
 	auto* ecs = m_engine->getECSManager();
-	if (!ecs) {
+	GLFWwindow* win = m_engine->getWindow();
+	if (!ecs || !win || m_camera == entt::null) {
 		return;
 	}
 
-	if (m_camera != entt::null && ecs->hasComponent<rigkit::ecs::COrbitDrive>(m_camera)) {
-		const auto& orbit = ecs->getComponent<rigkit::ecs::COrbitDrive>(m_camera);
-		const float yaw = m_time * orbit.speed;
-		const glm::vec3 eye{std::sin(yaw) * orbit.radius, orbit.height,
-							std::cos(yaw) * orbit.radius};
-		rig::lookAt(ecs->getComponent<rigkit::ecs::CTransform>(m_camera), eye, {0.0f, 0.5f, 0.0f});
-	}
+	double mx = 0.0, my = 0.0;
+	glfwGetCursorPos(win, &mx, &my);
+	const int lmb = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+	const int rmb = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+	const int mmb = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
+	const int alt = glfwGetKey(win, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
+					glfwGetKey(win, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;
+	const int shift = glfwGetKey(win, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+					  glfwGetKey(win, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+	const bool f = glfwGetKey(win, GLFW_KEY_F) == GLFW_PRESS;
 
-	if (m_light != entt::null && ecs->hasComponent<rigkit::ecs::CTransform>(m_light)) {
-		auto& lx = ecs->getComponent<rigkit::ecs::CTransform>(m_light);
-		const float t = m_time * 0.45f;
-		lx.position = {std::cos(t) * 3.2f, 2.8f + 0.5f * std::sin(t * 1.2f), std::sin(t) * 3.2f};
-	}
+	int winW = 0, winH = 0;
+	glfwGetWindowSize(win, &winW, &winH);
 
-	if (m_rocket != entt::null && ecs->hasComponent<rigkit::ecs::CTransform>(m_rocket)) {
-		auto& t = ecs->getComponent<rigkit::ecs::CTransform>(m_rocket);
-		// Soft idle: slight yaw drift + a tiny vertical bob on the pad.
-		t.position.y = 0.02f + 0.03f * std::sin(m_time * 1.6f);
-		t.setEulerRadians({0.0f, m_time * 0.15f, 0.0f});
+	rig::OrbitNavFrame frame;
+	frame.mouseX = static_cast<float>(mx);
+	frame.mouseY = static_cast<float>(my);
+	frame.viewW = static_cast<float>(winW);
+	frame.viewH = static_cast<float>(winH);
+	frame.orbit = (lmb && !shift) || (alt && lmb);
+	frame.pan = (lmb && shift) || mmb || (alt && mmb);
+	frame.dolly = rmb || (alt && rmb);
+	frame.wheel = m_wheel;
+	m_wheel = 0.f;
+	rig::orbitNavigate(*ecs, m_camera, frame, m_nav);
+
+	if (f && !m_fDown) {
+		rig::orbitFrameMeshes(*ecs, m_camera);
 	}
+	m_fDown = f;
 }

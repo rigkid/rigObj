@@ -15,11 +15,11 @@ auto e = rig::obj::makeMeshFromFile(ecs, "model.obj", rig::fill(1,1,1), "thing")
 rig::obj::save("out.obj", mesh);
 ```
 
-Triangulates on load. Fills `texcoords` and material `faceColors` (MTL diffuse) when present.
+Keeps authored vertices and faces. Tessellates n-gons to triangle `indices` for present. Fills `texcoords` and material `faceColors` (MTL diffuse) when present.
 
 ## Example
 
-[examples/load](examples/load/) - low-poly landing pad: `rocket.obj`, `pad.obj`, and `crate.obj` (with MTL) load into `CMesh`, then present under rigRender3D with an orbiting camera and banded light.
+[examples/load](examples/load/) - Stanford bunny (with MTL) loads into `CMesh`, then presents under rigRender3D. Mouse orbit / pan / dolly; F to frame. Host Show FPS enables the corner readout.
 
 ```bash
 cmake -S examples/load -B examples/load/build

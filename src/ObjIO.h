@@ -17,9 +17,11 @@ struct IoResult {
 
 /**
  * @brief Load a Wavefront OBJ into a `CMesh` (tinyobjloader).
- * @details Triangulates on read, then welds coincident verts and coplanar
- * islands into n-gon `loops` (a box becomes 6 faces). Fills `texcoords` when
- * present. When materials exist, fills `faceColors` from diffuse.
+ * @details Keeps the file's vertices and faces. Authored n-gons go in `loops`
+ * (a box stays 6 faces). Tessellates those loops to triangle `indices` for
+ * present. Does not weld coincident verts or merge coplanar islands. Fills
+ * `texcoords` when present (splits a vertex only when one OBJ vertex is used
+ * with two UVs). When materials exist, fills `faceColors` from diffuse.
  * Never fills `facePalette` (RigKit-only; not part of Wavefront).
  * @param path File path (.obj). MTL is resolved relative to the OBJ.
  */

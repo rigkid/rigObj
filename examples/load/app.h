@@ -1,18 +1,18 @@
 #pragma once
 #include <entt/entt.hpp>
 #include "core/U_core.h"
+#include "packs/rigSystems/src/OrbitNav.h"
 
 /**
- * @brief rigObj example - low-poly landing pad loaded from Wavefront OBJ.
- * @details Rocket, pad, and crates come from OBJ files under data/ (MTL
- * diffuse maps to `CMesh::faceColors`). Orbiting camera and a circling banded
- * light show the meshes under rigRender3D after a real file load.
+ * @brief rigObj hero - Stanford bunny from Wavefront OBJ.
+ * @details `data/bunny.obj` (+ MTL diffuse to `CMesh::faceColors`). Orbit camera
+ * (mouse orbit / pan / dolly) presents it under rigRender3D after a real file load.
  */
 class LoadApp : public rigkit::IApp {
   public:
 	LoadApp() {
-		window().width = 960;
-		window().height = 600;
+		window().width = 1280;
+		window().height = 720;
 		window().title = "rigObj - load";
 	}
 	void setup() override;
@@ -21,10 +21,7 @@ class LoadApp : public rigkit::IApp {
 
   private:
 	entt::entity m_camera = entt::null;
-	entt::entity m_light = entt::null;
-	entt::entity m_rocket = entt::null;
-	entt::entity m_pad = entt::null;
-	entt::entity m_crateA = entt::null;
-	entt::entity m_crateB = entt::null;
-	float m_time = 0.f;
+	rig::OrbitNavState m_nav;
+	float m_wheel = 0.f;
+	bool m_fDown = false;
 };
