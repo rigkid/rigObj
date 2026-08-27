@@ -2,7 +2,7 @@
 
 ![preview](img/preview.png)
 
-Loads a small landing-pad scene from Wavefront OBJ (+ MTL diffuse → `CMesh::faceColors`), presents with rigRender3D.
+Loads a small landing-pad scene from Wavefront OBJ (+ MTL diffuse to `CMesh::faceColors`), presents with rigRender3D.
 
 Meshes in `data/`: `rocket.obj`, `pad.obj`, `crate.obj` 
 

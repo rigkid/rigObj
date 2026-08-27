@@ -1,11 +1,10 @@
 #pragma once
 
 #include "core/pack/IPack.h"
-
 namespace rigkit {
 
 /**
- * @brief Code pack — Wavefront OBJ load/save for `CMesh` (tinyobjloader).
+ * @brief Code pack - Wavefront OBJ load/save for `CMesh` (tinyobjloader).
  * @details No systems. Apps call `rig::obj::load` / `save`. Depends on rigComponent.
  */
 class rigObj : public IPack {

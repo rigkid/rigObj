@@ -1,6 +1,8 @@
 #include "rigObj.h"
-#include "core/RigKitEngine.h"
+
 #include "core/pack/PackRegistry.h"
+#include "core/RigKitEngine.h"
+
 #include <spdlog/spdlog.h>
 
 namespace rigkit {

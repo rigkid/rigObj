@@ -2,9 +2,9 @@
 
 #include <string>
 
+#include "ecs/MEcs.h"
 #include "CDrawStyle.h"
 #include "CMesh.h"
-#include "ecs/MEcs.h"
 
 namespace rig {
 namespace obj {
@@ -28,7 +28,7 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh);
 /**
  * @brief Write `CMesh` to a simple Wavefront OBJ.
  * @details Prefers authored n-gon `loops`; otherwise triangle indices.
- * Geometry (+ UVs) only — does not write materials, `faceColors`, or `facePalette`.
+ * Geometry (+ UVs) only - does not write materials, `faceColors`, or `facePalette`.
  * Palette indices are RigKit-only; use `.rig` / document codecs to keep them.
  */
 IoResult save(const std::string& path, const rigkit::ecs::CMesh& mesh);

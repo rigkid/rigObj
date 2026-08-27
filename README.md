@@ -2,7 +2,7 @@
 
 ![preview](examples/load/img/preview.png)
 
-Wavefront **OBJ** load/save for [rigComponent](https://github.com/rigkid/rigComponent) `CMesh`, via [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader). Code / IO only — no systems.
+Wavefront **OBJ** load/save for [rigComponent](https://github.com/rigkid/rigComponent) `CMesh`, via [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader). Code / IO only - no systems.
 
 ## API
 
@@ -19,7 +19,7 @@ Triangulates on load. Fills `texcoords` and material `faceColors` (MTL diffuse) 
 
 ## Example
 
-[examples/load](examples/load/) — low-poly landing pad: `rocket.obj`, `pad.obj`, and `crate.obj` (with MTL) load into `CMesh`, then present under rigRender3D with an orbiting camera and banded light.
+[examples/load](examples/load/) - low-poly landing pad: `rocket.obj`, `pad.obj`, and `crate.obj` (with MTL) load into `CMesh`, then present under rigRender3D with an orbiting camera and banded light.
 
 ```bash
 cmake -S examples/load -B examples/load/build

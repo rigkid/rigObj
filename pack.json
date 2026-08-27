@@ -5,7 +5,7 @@
   "version": "0.1.1",
   "author": "Rigkid",
   "license": "MIT Rigkid Contributors",
-  "description": "Wavefront OBJ load/save for CMesh via tinyobjloader (MTL diffuse → faceColors).",
+  "description": "Wavefront OBJ load/save for CMesh via tinyobjloader (MTL diffuse to faceColors).",
   "dependencies": [
     "rigComponent"
   ],

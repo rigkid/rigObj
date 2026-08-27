@@ -1,12 +1,7 @@
 #include "app.h"
 
-#include <cmath>
-#include <filesystem>
-#include <string>
-
-#include <spdlog/spdlog.h>
-#include "core/RigKitEngine.h"
 #include "core/pack/MPack.h"
+#include "core/RigKitEngine.h"
 #include "core/util/AppPaths.h"
 #include "packs/rigComponent/src/CLight.h"
 #include "packs/rigComponent/src/COrbitDrive.h"
@@ -17,6 +12,11 @@
 #include "packs/rigObj/src/rigObj.h"
 #include "packs/rigRender3D/src/rigRender3D.h"
 #include "packs/rigSystems/src/rigSystems.h"
+
+#include <cmath>
+#include <filesystem>
+#include <spdlog/spdlog.h>
+#include <string>
 
 namespace {
 
@@ -37,7 +37,7 @@ entt::entity loadObj(rigkit::MEcs& ecs, const std::filesystem::path& path,
 } // namespace
 
 void LoadApp::setup() {
-	spdlog::info("load — rigObj landing pad (OBJ + MTL → CMesh faceColors)");
+	spdlog::info("load - rigObj landing pad (OBJ + MTL to CMesh faceColors)");
 	m_engine->setClearColor(0.04f, 0.05f, 0.09f, 1.0f);
 
 	auto* packs = m_engine->getPackManager();

@@ -3,17 +3,17 @@
 #include "core/U_core.h"
 
 /**
- * @brief rigObj hero — low-poly landing pad loaded from Wavefront OBJ.
- * @details Rocket, pad, and crates come from `data/*.obj` (+ MTL diffuse →
- * `CMesh::faceColors`). Orbiting camera and a circling banded light show the
- * meshes under rigRender3D after a real file load.
+ * @brief rigObj example - low-poly landing pad loaded from Wavefront OBJ.
+ * @details Rocket, pad, and crates come from OBJ files under data/ (MTL
+ * diffuse maps to `CMesh::faceColors`). Orbiting camera and a circling banded
+ * light show the meshes under rigRender3D after a real file load.
  */
 class LoadApp : public rigkit::IApp {
   public:
 	LoadApp() {
 		window().width = 960;
 		window().height = 600;
-		window().title = "rigObj — load";
+		window().title = "rigObj - load";
 	}
 	void setup() override;
 	void update(float dt) override;
